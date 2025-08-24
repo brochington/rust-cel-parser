@@ -11,7 +11,7 @@ uint_lit    = ${ int_lit ~ ("u" | "U") }
 exponent    =  { ("e" | "E") ~ ("+" | "-")? ~ digit+ }
 float_lit   = @{ (digit* ~ "." ~ digit+ ~ exponent?) | (digit+ ~ exponent) }
 
-// --- String Parsing (Restored Correct Version) ---
+// --- String Parsing ---
 // Escapes
 oct_digit    = { '0'..'7' }
 hex_esc      = { "\\" ~ ("x" | "X") ~ hex_digit{2} }
@@ -30,7 +30,7 @@ raw_inner_single_quotes = { (!("'") ~ ANY)* }
 raw_inner_triple_double = { (!"\"\"\"" ~ ANY)* }
 raw_inner_triple_single = { (!"'''" ~ ANY)* }
 
-// Specific Quote Type Rules (These were missing)
+// Specific Quote Type Rules
 normal_string_lit_double        = { "\"" ~ inner_double_quotes ~ "\"" }
 normal_string_lit_single        = { "'" ~ inner_single_quotes ~ "'" }
 normal_string_lit_triple_double = { "\"\"\"" ~ inner_triple_double ~ "\"\"\"" }
@@ -55,13 +55,13 @@ cel_reserved_for_ident_word = @{
     ("as" | "break" | "const" | "continue" | "else" | "for" | "function" | "if" | "import" | "let" | "loop" | "package" | "namespace" | "return" | "var" | "void" | "while") ~ !next_char_is_ident_part
 }
 
-// Macro
+// --- Macros ---
 comprehension_macro_word = @{ ("all" | "exists_one" | "exists" | "filter" ) ~ !next_char_is_ident_part } // NOTE: order matters!
 map_macro_word           = @{ "map" ~ !next_char_is_ident_part }
 has_macro                = { "has" ~ "(" ~ expr ~ ")" }
 map_macro                = { DOT ~ map_macro_word ~ "(" ~ ident ~ "," ~ expr ~ ("," ~ expr)? ~ ")" }
 
-// Identifiers
+// --- Identifiers ---
 raw_ident_pattern =  { ('a'..'z' | 'A'..'Z' | "_") ~ ('a'..'z' | 'A'..'Z' | digit | "_")* }
 ident             = @{ !(cel_keyword_word | cel_reserved_for_ident_word) ~ raw_ident_pattern }
 selector          = @{ !(cel_keyword_word | comprehension_macro_word | map_macro_word) ~ raw_ident_pattern }
