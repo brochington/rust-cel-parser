@@ -2,6 +2,14 @@
 name = "rust-cel-parser"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+authors = ["Broch Stilley <brochignton@gmail.com>"]
+description = "A parser for the CEL language"
+repository = "https://github.com/brochington/rust-cel-parser"
+readme = "README.md"
+categories = ["parser-implementations", "compilers"]
+keywords = ["cel", "parser", "ast", "expression", "google"]
+
 
 [dependencies]
 pest = "2.8.1"
