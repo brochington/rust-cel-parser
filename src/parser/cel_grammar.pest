@@ -1,0 +1,138 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = _{ "//" ~ (!("\r" | "\n") ~ ANY)* }
+
+// --- Literals ---
+digit       =  { '0'..'9' }
+hex_digit   =  { '0'..'9' | 'a'..'f' | 'A'..'F' }
+decimal_lit = @{ ("0" ~ !("x" | "X")) | (ASCII_NONZERO_DIGIT ~ digit*) }
+hex_lit     = @{ "0" ~ ("x" | "X") ~ hex_digit+ }
+int_lit     =  { hex_lit | decimal_lit }
+uint_lit    = ${ int_lit ~ ("u" | "U") }
+exponent    =  { ("e" | "E") ~ ("+" | "-")? ~ digit+ }
+float_lit   = @{ (digit* ~ "." ~ digit+ ~ exponent?) | (digit+ ~ exponent) }
+
+// --- String Parsing (Restored Correct Version) ---
+// Escapes
+oct_digit    = { '0'..'7' }
+hex_esc      = { "\\" ~ ("x" | "X") ~ hex_digit{2} }
+oct_esc      = { "\\" ~ oct_digit{3} }
+uni_esc      = { "\\" ~ "u" ~ hex_digit{4} }
+uni_esc_long = { "\\" ~ "U" ~ hex_digit{8} }
+esc_char     = { "\\a" | "\\b" | "\\f" | "\\n" | "\\r" | "\\t" | "\\v" | "\\\\" | "\\?" | "\\\"" | "\\'" | "\\`" }
+
+// Inner String Content Rules
+inner_double_quotes     = { (esc_char | hex_esc | oct_esc | uni_esc | uni_esc_long | !("\"" | "\\") ~ ANY)* }
+inner_single_quotes     = { (esc_char | hex_esc | oct_esc | uni_esc | uni_esc_long | !("'" | "\\") ~ ANY)* }
+inner_triple_double     = { (esc_char | hex_esc | oct_esc | uni_esc | uni_esc_long | !"\"\"\"" ~ ANY)* }
+inner_triple_single     = { (esc_char | hex_esc | oct_esc | uni_esc | uni_esc_long | !"'''" ~ ANY)* }
+raw_inner_double_quotes = { (!("\"") ~ ANY)* }
+raw_inner_single_quotes = { (!("'") ~ ANY)* }
+raw_inner_triple_double = { (!"\"\"\"" ~ ANY)* }
+raw_inner_triple_single = { (!"'''" ~ ANY)* }
+
+// Specific Quote Type Rules (These were missing)
+normal_string_lit_double        = { "\"" ~ inner_double_quotes ~ "\"" }
+normal_string_lit_single        = { "'" ~ inner_single_quotes ~ "'" }
+normal_string_lit_triple_double = { "\"\"\"" ~ inner_triple_double ~ "\"\"\"" }
+normal_string_lit_triple_single = { "'''" ~ inner_triple_single ~ "'''" }
+raw_string_lit_double           = { "\"" ~ raw_inner_double_quotes ~ "\"" }
+raw_string_lit_single           = { "'" ~ raw_inner_single_quotes ~ "'" }
+raw_string_lit_triple_double    = { "\"\"\"" ~ raw_inner_triple_double ~ "\"\"\"" }
+raw_string_lit_triple_single    = { "'''" ~ raw_inner_triple_single ~ "'''" }
+
+// String and Bytes Literals
+string_lit = ${ (("r" | "R") ~ (raw_string_lit_double | raw_string_lit_single | raw_string_lit_triple_double | raw_string_lit_triple_single)) | (normal_string_lit_double | normal_string_lit_single | normal_string_lit_triple_double | normal_string_lit_triple_single) }
+bytes_lit  = ${ ("b" | "B") ~ string_lit }
+bool_lit   = @{ "true" | "false" }
+null_lit   = @{ "null" }
+type_lit   = @{ ("int" | "uint" | "double" | "bool" | "string" | "bytes" | "list" | "map" | "null_type" | "type") ~ !next_char_is_ident_part }
+literal    =  { float_lit | uint_lit | int_lit | string_lit | bytes_lit | type_lit | bool_lit | null_lit }
+
+// --- Identifiers & Keywords ---
+next_char_is_ident_part     = _{ "_" | 'a'..'z' | 'A'..'Z' | digit }
+cel_keyword_word            = @{ ("true" | "false" | "null" | "in") ~ !next_char_is_ident_part }
+cel_reserved_for_ident_word = @{
+    ("as" | "break" | "const" | "continue" | "else" | "for" | "function" | "if" | "import" | "let" | "loop" | "package" | "namespace" | "return" | "var" | "void" | "while") ~ !next_char_is_ident_part
+}
+
+// Macro
+comprehension_macro_word = @{ ("all" | "exists_one" | "exists" | "filter" ) ~ !next_char_is_ident_part } // NOTE: order matters!
+map_macro_word           = @{ "map" ~ !next_char_is_ident_part }
+has_macro                = { "has" ~ "(" ~ expr ~ ")" }
+map_macro                = { DOT ~ map_macro_word ~ "(" ~ ident ~ "," ~ expr ~ ("," ~ expr)? ~ ")" }
+
+// Identifiers
+raw_ident_pattern =  { ('a'..'z' | 'A'..'Z' | "_") ~ ('a'..'z' | 'A'..'Z' | digit | "_")* }
+ident             = @{ !(cel_keyword_word | cel_reserved_for_ident_word) ~ raw_ident_pattern }
+selector          = @{ !(cel_keyword_word | comprehension_macro_word | map_macro_word) ~ raw_ident_pattern }
+leading_dot       =  { "." }
+
+// --- Punctuation ---
+DOT     = _{ "." }
+LSQUARE = _{ "[" }
+RSQUARE = _{ "]" }
+COLON   = _{ ":" }
+LBRACE  = _{ "{" }
+RBRACE  = _{ "}" }
+
+// --- Core Structures ---
+paren_expr      = { "(" ~ expr ~ ")" }
+expr_list       = { expr ~ ("," ~ expr)* }
+list_lit        = { "[" ~ expr_list? ~ ","? ~ "]" }
+map_entry       = { expr ~ COLON ~ expr }
+map_lit         = { LBRACE ~ (map_entry ~ ("," ~ map_entry)*)? ~ ","? ~ RBRACE }
+field_init      = { selector ~ COLON ~ expr }
+qualified_ident = { (leading_dot? ~ ident) ~ (DOT ~ selector)* }
+message_lit     = { qualified_ident ~ LBRACE ~ (field_init ~ ("," ~ field_init)*)? ~ ","? ~ RBRACE }
+
+
+// --- Primary Expressions ---
+global_call = { ident ~ "(" ~ expr_list? ~ ")" }
+primary     = {
+    message_lit
+  | map_lit
+  | list_lit
+  | has_macro
+  | global_call // Longest match first to disambiguate from plain ident
+  | literal
+  | paren_expr
+  | (leading_dot? ~ ident)
+}
+
+// --- Postfix Operations ---
+call_args     = { "(" ~ expr_list? ~ ")" }
+field_access  = { DOT ~ selector }
+member_call   = { field_access ~ call_args }
+index_access  = { LSQUARE ~ expr ~ RSQUARE }
+comprehension = { DOT ~ comprehension_macro_word ~ "(" ~ ident ~ "," ~ expr ~ ")" }
+
+// --- Unified Chaining Rule ---
+member_chain = { primary ~ (comprehension | map_macro | member_call | field_access | index_access)* }
+
+// --- Operators ---
+add          = { "+" }
+mul          = { "*" }
+div          = { "/" }
+rem          = { "%" }
+eq           = { "==" }
+ne           = { "!=" }
+le           = { "<=" }
+lt           = { "<" }
+ge           = { ">=" }
+gt           = { ">" }
+in_op        = { "in" }
+log_and      = { "&&" }
+log_or       = { "||" }
+unary_minus  = { "-" }
+binary_minus = { "-" }
+log_not      = { "!" }
+cond         = { "?" }
+cond_else    = { ":" }
+
+// --- Pratt Parser Structure ---
+op_prefix              = _{ log_not | unary_minus }
+op_infix               = _{ log_or | log_and | eq | ne | le | lt | ge | gt | in_op | add | binary_minus | mul | div | rem }
+term                   = _{ op_prefix* ~ member_chain }
+pratt_operand_sequence =  { term ~ (op_infix ~ term)* }
+expr                   =  { pratt_operand_sequence ~ (cond ~ expr ~ cond_else ~ expr)? }
+program                =  { SOI ~ expr ~ EOI }
