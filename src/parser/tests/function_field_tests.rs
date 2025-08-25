@@ -164,7 +164,6 @@ fn test_parse_conversion_functions() {
     );
 }
 
-
 #[test]
 fn test_parse_complex_chains() {
     assert_parses_expr_to!(

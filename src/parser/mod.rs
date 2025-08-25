@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
+use pest::Parser;
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
-use pest::Parser;
 use pest_derive::Parser;
 
 use crate::ast::{BinaryOperator, CelType, ComprehensionOp, Expr, Literal, UnaryOperator};
@@ -279,7 +279,7 @@ fn build_ast_from_pratt_sequence(pairs: Pairs<Rule>) -> Result<Expr, CelParserEr
                     return Err(CelParserError::InternalError(format!(
                         "Unexpected infix operator: {:?}",
                         op.as_rule()
-                    )))
+                    )));
                 }
             };
             Ok(Expr::BinaryOp {
@@ -475,7 +475,7 @@ fn build_ast_from_literal_rule(pair: Pair<Rule>) -> Result<Expr, CelParserError>
                     return Err(CelParserError::InternalError(format!(
                         "Unexpected rule matched inside string_lit: {:?}",
                         specific_quote_type_pair.as_rule()
-                    )))
+                    )));
                 }
             };
 
@@ -562,7 +562,7 @@ fn build_ast_from_literal_rule(pair: Pair<Rule>) -> Result<Expr, CelParserError>
                     return Err(CelParserError::InternalError(format!(
                         "Unexpected rule matched inside bytes_lit's string_lit: {:?}",
                         specific_quote_type_pair.as_rule()
-                    )))
+                    )));
                 }
             };
 
@@ -602,7 +602,7 @@ fn build_ast_from_literal_rule(pair: Pair<Rule>) -> Result<Expr, CelParserError>
                     return Err(CelParserError::InternalError(format!(
                         "Unknown type literal: {}",
                         type_str
-                    )))
+                    )));
                 }
             };
             Ok(Expr::Type(cel_type))
@@ -816,7 +816,7 @@ fn parse_bytes_escapes(s: &str) -> Result<Vec<u8>, CelParserError> {
                         } else {
                             "U".to_string()
                         },
-                    ))
+                    ));
                 }
                 o @ b'0'..=b'3' => {
                     // Octal escape \ooo interpreted as byte value
@@ -851,7 +851,7 @@ fn parse_bytes_escapes(s: &str) -> Result<Vec<u8>, CelParserError> {
                 other => {
                     return Err(CelParserError::InvalidEscapeSequence(
                         (other as char).to_string(),
-                    ))
+                    ));
                 }
             }
         } else {

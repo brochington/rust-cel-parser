@@ -1,4 +1,3 @@
-
 use super::super::*;
 use crate::ast::{BinaryOperator, CelType, Expr, Literal};
 use pretty_assertions::assert_eq;

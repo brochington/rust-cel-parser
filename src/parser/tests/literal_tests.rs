@@ -1,4 +1,5 @@
 use super::*;
+use crate::builder::*;
 use pretty_assertions::assert_eq;
 
 // --- Integer Tests ---
@@ -28,7 +29,7 @@ fn test_parse_uint_literals() {
     assert_parses_expr_to!("0x0U", Expr::Literal(Literal::Uint(0)));
     assert_parse_fails!("123L", "Pest parsing error"); // Invalid suffix
     assert_parse_fails!("123 u", "Pest parsing error"); // Whitespace not allowed by atomic uint_lit
-                                                        // assert_parse_fails!("-1u", "Pest parsing error"); // Sign not allowed
+    // assert_parse_fails!("-1u", "Pest parsing error"); // Sign not allowed
 }
 
 // --- Float Tests ---
@@ -43,7 +44,7 @@ fn test_parse_float_literals() {
     assert_parses_expr_to!("1e+4", Expr::Literal(Literal::Float(10000.0)));
     assert_parses_expr_to!("5E1", Expr::Literal(Literal::Float(50.0)));
     assert_parses_expr_to!("0e0", Expr::Literal(Literal::Float(0.0)));
-    assert_parses_expr_to!("1e1", Expr::Literal(Literal::Float(10.0)));// Needs digits after e
+    assert_parses_expr_to!("1e1", Expr::Literal(Literal::Float(10.0))); // Needs digits after e
 }
 
 // --- String Tests ---
@@ -129,13 +130,13 @@ fn test_parse_string_literals() {
     // assert_parse_fails!(r#"""""#);
     assert_parse_fails!(r#""unterminated"#, "Pest parsing error"); // works
     assert_parse_fails!(r"'unterminated", "Pest parsing error"); // works
-                                                                 // assert_parse_fails!(r#""invalid escape \s""#, "Invalid escape sequence: s");
-                                                                 // assert_parse_fails!(r#""\uD800""#, "surrogate"); // Surrogate check
-                                                                 // assert_parse_fails!(r#""\U00110000""#, "> U+10FFFF"); // Out of range check
-                                                                 // assert_parse_fails!(r#""\400""#, "Invalid escape sequence: 400"); // Invalid octal value
-                                                                 // assert_parse_fails!(r#""\xa""#, "Incomplete escape sequence"); // Incomplete hex
-                                                                 // assert_parse_fails!(r#""\u123""#, "Incomplete escape sequence"); // Incomplete unicode
-                                                                 // assert_parse_fails!(r#""\""#, "Incomplete escape sequence"); // Escape at end
+    // assert_parse_fails!(r#""invalid escape \s""#, "Invalid escape sequence: s");
+    // assert_parse_fails!(r#""\uD800""#, "surrogate"); // Surrogate check
+    // assert_parse_fails!(r#""\U00110000""#, "> U+10FFFF"); // Out of range check
+    // assert_parse_fails!(r#""\400""#, "Invalid escape sequence: 400"); // Invalid octal value
+    // assert_parse_fails!(r#""\xa""#, "Incomplete escape sequence"); // Incomplete hex
+    // assert_parse_fails!(r#""\u123""#, "Incomplete escape sequence"); // Incomplete unicode
+    // assert_parse_fails!(r#""\""#, "Incomplete escape sequence"); // Escape at end
 }
 
 // --- Bytes Tests ---
@@ -148,7 +149,7 @@ fn test_parse_bytes_literals() {
         Expr::Literal(Literal::Bytes(vec![120, 121, 122]))
     );
     assert_parses_expr_to!(r#"b"ÿ""#, Expr::Literal(Literal::Bytes(vec![195, 191]))); // UTF-8 for U+00FF
-                                                                                      // Escapes (interpret differently than string)
+    // Escapes (interpret differently than string)
     assert_parses_expr_to!(r#"b"\x61""#, Expr::Literal(Literal::Bytes(vec![0x61]))); // a
     assert_parses_expr_to!(r#"b"\141""#, Expr::Literal(Literal::Bytes(vec![0o141]))); // a = 97 = 0o141
     assert_parses_expr_to!(r#"b"\xff""#, Expr::Literal(Literal::Bytes(vec![0xff]))); // Byte 255
@@ -170,7 +171,7 @@ fn test_parse_bytes_literals() {
     assert_parse_fails!(r#"b"\xa""#, "Pest parsing error"); // Incomplete hex
     assert_parse_fails!(r#"b"\xZZ""#, "Pest parsing error"); // Invalid hex digits
     assert_parse_fails!(r#"b"\181""#, "Pest parsing error"); // Invalid octal digits
-                                                             //  assert_parse_fails!(r#"br"\xff""#, "Pest parsing error"); // Raw marker must be *after* b/B prefix
+    //  assert_parse_fails!(r#"br"\xff""#, "Pest parsing error"); // Raw marker must be *after* b/B prefix
 }
 
 //     // --- Bool Tests ---
@@ -467,7 +468,42 @@ fn test_parse_unary_ops() {
     );
 }
 
+#[test]
+fn test_complex_ast_construction_with_builders() {
+    // Expression: user.age > 18 && has(request.id) ? size(list) + 1 : 0
+    let expected = conditional(
+        // Condition: user.age > 18 && has(request.id)
+        and(
+            // user.age > 18
+            gt(field_access(ident("user"), "age"), 18),
+            // has(request.id)
+            has(field_access(ident("request"), "id")),
+        ),
+        // True Branch: size(list) + 1
+        add(
+            call(ident("size"), vec![ident("list_a")]),
+            1, // Uses From<i64>
+        ),
+        // False Branch: 0
+        0, // Uses From<i64>
+    );
 
+    // This AST structure, built using the builders, should match the one produced by the parser.
+    assert_parses_expr_to!(
+        "user.age > 18 && has(request.id) ? size(list_a) + 1 : 0",
+        expected
+    );
+}
+
+#[test]
+fn test_builder_with_complex_list_and_map() {
+    // Expression: [1, 'two'].exists(x, x == 2)
+    let target = list(vec![lit(1), lit("two")]);
+
+    let expected = comprehension(ComprehensionOp::Exists, target, "x", eq(ident("x"), 2));
+
+    assert_parses_expr_to!("[1, 'two'].exists(x, x == 2)", expected);
+}
 
 #[test]
 fn test_parse_failures() {

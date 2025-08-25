@@ -166,7 +166,6 @@ fn test_parse_string_concatenation() {
     );
 }
 
-
 #[test]
 fn test_parse_equality_operators() {
     // Note: The parser correctly creates the AST. Type compatibility is a matter for the type-checker and evaluator.
@@ -271,7 +270,6 @@ fn test_parse_logical_operators() {
         }
     );
 }
-
 
 #[test]
 fn test_parse_precedence() {
@@ -438,8 +436,6 @@ fn test_parse_unary_ops() {
         }
     );
 }
-
-
 
 #[test]
 fn test_parse_failures() {
