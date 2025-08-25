@@ -1,108 +1,83 @@
 # Rust CEL Parser
 
-A Rust library for parsing Google's Common Expression Language (CEL) into a structured Abstract Syntax Tree (AST). This parser is built using the `pest` parser generator and provides detailed AST nodes for all supported CEL constructs.
+A parser for Google's Common Expression Language (CEL) that produces a detailed Abstract Syntax Tree (AST).
 
-It is designed to be a foundational piece for tools that need to interpret, analyze, or evaluate CEL expressions, such as policy engines, validators, or compilers.
+## Core Features
 
-## Getting Started
+## Quick Start
 
-To use this library in your project, add the following to your `Cargo.toml`:
+### 1. Installation
+
+Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rust-cel-parser = { git = "https://github.com/your-username/rust-cel-parser.git" } # Replace with the actual source if published
+rust-cel-parser = "0.1.0" # Replace with the latest version
 ```
 
-### Example Usage
-
-Here is a simple example of how to parse a CEL expression string and inspect the resulting AST.
+### 2. Parsing an Expression
 
 ```rust
 use rust_cel_parser::{parse_cel_program, Expr, BinaryOperator, Literal};
 
 fn main() {
-    let expression = "request.time.year >= 2025 && 'admin' in request.auth.claims.groups";
+    let expression = "request.auth.claims['group'] == 'admin'";
+    let ast = parse_cel_program(expression).unwrap();
 
-    match parse_cel_program(expression) {
-        Ok(ast) => {
-            println!("Successfully parsed expression into AST:");
-            println!("{:#?}", ast);
-
-            // You can now programmatically inspect the AST
-            if let Expr::BinaryOp { op: BinaryOperator::And, left, .. } = ast {
-                println!("\nThis is a logical AND expression.");
-                if let Some(Expr::BinaryOp { op: BinaryOperator::Ge, .. }) = left.as_ref().as_binary_op() {
-                   println!("- The left side is a 'greater than or equal to' comparison.");
-                }
-            }
-        },
-        Err(e) => {
-            eprintln!("Failed to parse expression:\n{}", e);
-        }
+    // Inspect the AST using helper methods
+    if let Some((op, _, right)) = ast.as_binary_op() {
+        assert_eq!(op, BinaryOperator::Eq);
+        assert_eq!(right.as_literal(), Some(&Literal::String("admin".to_string())));
+        println!("Successfully parsed and validated the expression!");
     }
 }
+```
+
+### 3. Walking the AST with a Visitor
+
+The Visitor pattern is a way to analyze an expression. Here's how to find all unique identifiers used in an expression:
+
+```rust
+use rust_cel_parser::{parse_cel_program, visitor::Visitor};
+use std::collections::HashSet;
+
+// 1. Define a struct to hold your state.
+struct IdentifierCollector<'a> {
+    names: HashSet<&'a str>,
+}
+
+// 2. Implement the Visitor trait, overriding only the methods you need.
+impl<'ast> Visitor<'ast> for IdentifierCollector<'ast> {
+    fn visit_identifier(&mut self, ident: &'ast str) {
+        self.names.insert(ident);
+    }
+}
+
+// 3. Run the visitor.
+let ast = parse_cel_program("request.user + params.id").unwrap();
+let mut collector = IdentifierCollector { names: HashSet::new() };
+ast.accept(&mut collector); // The `accept` method starts the traversal.
+
+assert!(collector.names.contains("request"));
+assert!(collector.names.contains("params"));
+println!("Found identifiers: {:?}", collector.names);
 ```
 
 ## Supported Features
 
 This parser supports a significant portion of the CEL specification.
 
-*   **Literals**:
-    *   `int`: `123`, `-10`, `0xCAFE`
-    *   `uint`: `123u`, `0u`, `0xDEADBEEFu`
-    *   `double`: `1.23`, `.5`, `1e-3`
-    *   `bool`: `true`, `false`
-    *   `string`: `'hello'`, `"world"` (with escapes like `\n`, `\u004A`)
-    *   `bytes`: `b'bytes-string'`, `b"\xFF"`
-    *   `null`: `null`
+- **Literals**: `int`, `uint`, `double`, `bool`, `string`, `bytes`, `null`.
+- **Operators**: All arithmetic, logical, and relational operators with correct precedence.
+- **Data Structures**: `List` (`[...]`), `Map` (`{...}`), and `Message` literals.
+- **Accessors**: Field access (`.`), index access (`[...]`).
+- **Control Flow**: Ternary operator (`_ ? _ : _`).
+- **Macros**: `has()`, `all()`, `exists()`, `exists_one()`, `filter()`, `map()`.
 
-*   **Operators**:
-    *   **Arithmetic**: `*`, `/`, `%`, `+`, `-`
-    *   **Logical**: `!` (NOT), `&&` (AND), `||` (OR)
-    *   **Relational**: `==`, `!=`, `<`, `<=`, `>`, `>=`
-    *   **Membership**: `in` (e.g., `'elem' in ['a', 'b']`)
+## License
 
-*   **Data Structures**:
-    *   **Lists**: `[1, 'two', true]`
-    *   **Maps**: `{'key1': 1.0, 2: 'value2'}`
-    *   **Messages**: `my.pkg.TypeName{field1: 'value', field2: 123}`
+This project is licensed under the MIT license ([LICENSE-MIT](./LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
-*   **Accessors**:
-    *   **Field Access**: `variable.field.nested_field`
-    *   **Index Access**: `list[0]`, `map['key']`, `message[dyn(field_name)]`
+## Contributing
 
-*   **Control Flow**:
-    *   **Conditional (Ternary) Operator**: `condition ? true_expr : false_expr`
-
-*   **Functions & Types**:
-    *   Global function calls: `size(list)`
-    *   Member function calls: `string.startsWith('prefix')`
-    *   Type literals as first-class objects: `type(1) == int`
-
-*   **Macros**:
-    *   `has(message.field)`
-    *   `list.all(i, i > 0)`
-    *   `list.exists(i, i == 10)`
-    *   `list.exists_one(i, i < 0)`
-    *   `list.filter(i, i.enabled)`
-    *   `list.map(i, i * i)`
-    *   `list.map(i, i.value > 0, i.name)`
-
-## Not Yet Supported
-
-While the parser is comprehensive, some features of the CEL spec are not yet implemented:
-
-*   **Triple-Quoted Strings**: Multi-line strings using `"""` or `'''` are not supported.
-*   **Raw Strings**: While basic raw strings (`r"..."`, `r'...'`) are supported, raw triple-quoted strings (`r"""..."""`) are not.
-*   **Comments**: The grammar recognizes comments, but they are discarded during parsing and not represented in the AST.
-
-## Library Components
-
-*   **`parser::parse_cel_program(&str) -> Result<Expr, CelParserError>`**
-    This is the main entry point to the library. It takes a string slice containing the CEL expression and returns a `Result`. On success, it yields a complete `Expr` AST; on failure, it returns a `CelParserError` with details about the parsing error.
-
-*   **`ast::Expr`**
-    This is the primary enum that represents the nodes of the Abstract Syntax Tree. It covers all supported language constructs, from simple literals (`Expr::Literal`) to complex macros (`Expr::Comprehension`).
-
-*   **`error::CelParserError`**
-    The dedicated error type for the library. It provides specific variants for different failure modes, such as a Pest-level syntax error, an invalid numeric literal, or an incomplete escape sequence.
+Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to set up the development environment, run tests, and submit a pull request.

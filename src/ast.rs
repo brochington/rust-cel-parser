@@ -2,6 +2,7 @@ use crate::visitor::Visitor;
 use std::fmt;
 
 // --- Literals ---
+/// A literal is a primitive value that can be used in an expression.
 #[derive(PartialEq, Clone)]
 pub enum Literal {
     Int(i64),
@@ -89,6 +90,7 @@ impl fmt::Display for Literal {
     }
 }
 
+/// A comprehension operation is a way to iterate over a collection and apply a filter or transformation.
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ComprehensionOp {
     All,
@@ -98,6 +100,8 @@ pub enum ComprehensionOp {
 }
 
 // --- Operators ---
+
+/// A unary operator is an operator that takes a single operand.
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum UnaryOperator {
     Not, // !
@@ -113,6 +117,7 @@ impl fmt::Display for UnaryOperator {
     }
 }
 
+/// An operator that takes two operands.
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum BinaryOperator {
     Or,  // ||
@@ -172,6 +177,7 @@ impl fmt::Display for BinaryOperator {
     }
 }
 
+/// A way to represent the type of a value in an expression.
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum CelType {
     Int,
@@ -185,6 +191,7 @@ pub enum CelType {
     NullType,
     Type,
 }
+
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expr {
@@ -381,11 +388,7 @@ impl fmt::Display for Expr {
     }
 }
 
-// --- `From` Implementations ---
-// This section provides ergonomic conversions from Rust primitive types
-// into AST `Expr` and `Literal` nodes, making programmatic AST construction easier.
-
-// -- Conversions to Literal --
+// --- Conversions to Literal ---
 
 impl From<i32> for Literal {
     fn from(val: i32) -> Self {
